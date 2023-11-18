@@ -16,6 +16,7 @@ pub trait DropdownItem: Clone + std::fmt::Debug + Ord {
         String::new()
     }
     fn label(&self) -> String;
+    fn group(&self) -> String;
     fn info(&self) -> Option<Info>;
 }
 
@@ -26,6 +27,10 @@ impl DropdownItem for String {
 
     fn info(&self) -> Option<Info> {
         None
+    }
+
+    fn group(&self) -> String {
+        self.clone()
     }
 }
 
@@ -58,22 +63,65 @@ impl<T: DropdownItem> Dropdown<T> {
         dropdown
     }
 
-    pub fn next_item(&mut self) -> Option<T> {
-        if self.current_item_index == self.filtered_items.len().saturating_sub(1) {
+    pub fn change_index(&mut self, index: usize) -> Option<T> {
+        if !(0..self.items.len()).contains(&index) {
             return self.current_item();
         }
-        self.current_item_index += 1;
+        self.current_item_index = index;
         self.editor.select_line_at(self.current_item_index).ok()?;
         self.show_current_item()
     }
 
+    pub fn next_item(&mut self) -> Option<T> {
+        self.change_index(self.current_item_index + 1)
+    }
+
     pub fn previous_item(&mut self) -> Option<T> {
-        if self.current_item_index == 0 {
-            return self.current_item();
-        }
-        self.current_item_index -= 1;
-        self.editor.select_line_at(self.current_item_index).ok()?;
-        self.show_current_item()
+        self.change_index(self.current_item_index.saturating_sub(1))
+    }
+
+    fn last_item(&mut self) -> Option<T> {
+        self.change_index(self.items.len().saturating_sub(1))
+    }
+
+    fn first_item(&mut self) -> Option<T> {
+        self.change_index(0)
+    }
+
+    fn groups(&self) -> Vec<String> {
+        self.filtered_items
+            .iter()
+            .map(DropdownItem::group)
+            .unique()
+            .sorted()
+            .collect_vec()
+    }
+
+    fn change_group_index(&mut self, increment: bool) -> Option<T> {
+        let current_group = self.current_item()?.group();
+        let groups = self.groups();
+        let (current_group_index, _) = groups
+            .iter()
+            .find_position(|group| group == &&current_group)?;
+        let new_group_index = if increment {
+            current_group_index.saturating_add(1)
+        } else {
+            current_group_index.saturating_sub(1)
+        };
+        let new_group = groups.get(new_group_index)?;
+        let (new_item_index, _) = self
+            .filtered_items
+            .iter()
+            .find_position(|item| &item.group() == new_group)?;
+        self.change_index(new_item_index)
+    }
+
+    fn next_group(&mut self) -> Option<T> {
+        self.change_group_index(true)
+    }
+
+    fn previous_group(&mut self) -> Option<T> {
+        self.change_group_index(false)
     }
 
     pub fn show_current_item(&mut self) -> Option<T> {
@@ -108,7 +156,13 @@ impl<T: DropdownItem> Dropdown<T> {
                     .contains(&self.filter.to_lowercase())
             })
             .cloned()
-            .sorted()
+            .sorted_by(|a, b| {
+                let ord = a.group().cmp(&b.group());
+                match ord {
+                    std::cmp::Ordering::Equal => a.label().cmp(&b.label()),
+                    _ => ord,
+                }
+            })
             .collect();
 
         self.show_current_item();
@@ -165,7 +219,11 @@ impl<T: DropdownItem> Dropdown<T> {
             Movement::Next => self.next_item(),
             Movement::Current => self.current_item(),
             Movement::Previous => self.previous_item(),
-            _ => todo!(),
+            Movement::Last => self.last_item(),
+            Movement::First => self.first_item(),
+            Movement::Up => self.previous_group(),
+            Movement::Down => self.next_group(),
+            _ => None,
         }
     }
 
@@ -216,6 +274,81 @@ mod test_dropdown {
         },
         selection::CharIndex,
     };
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct Item {
+        label: String,
+        info: Info,
+        group: String,
+    }
+    impl PartialOrd for Item {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+            self.label.partial_cmp(&other.label)
+        }
+    }
+
+    impl Ord for Item {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+            self.label.cmp(&other.label)
+        }
+    }
+
+    impl Item {
+        fn new(label: &str, info: &str, group: &str) -> Self {
+            Self {
+                label: label.to_string(),
+                info: Info::new(info.to_string()),
+                group: group.to_string(),
+            }
+        }
+    }
+
+    impl DropdownItem for Item {
+        fn label(&self) -> String {
+            self.label.to_string()
+        }
+
+        fn info(&self) -> Option<Info> {
+            Some(self.info.clone())
+        }
+
+        fn group(&self) -> String {
+            self.group.clone()
+        }
+    }
+
+    #[test]
+    fn test_next_prev_group() {
+        let mut dropdown = Dropdown::new(DropdownConfig {
+            title: "test".to_string(),
+        });
+        dropdown.set_items(
+            [
+                Item::new("a", "", "1"),
+                Item::new("d", "", "2"),
+                Item::new("c", "", "2"),
+                Item::new("b", "", "3"),
+            ]
+            .to_vec(),
+        );
+
+        // Expect the items are sorted by group first, then by label
+        assert_eq!(
+            dropdown.editor.buffer().rope().to_string(),
+            "a\nc\nd\nb".to_string()
+        );
+
+        assert_eq!(dropdown.current_item().unwrap().label(), "a");
+
+        dropdown.next_group();
+        assert_eq!(dropdown.current_item().unwrap().label(), "c");
+        dropdown.next_group();
+        assert_eq!(dropdown.current_item().unwrap().label(), "b");
+
+        dropdown.previous_group();
+        assert_eq!(dropdown.current_item().unwrap().label(), "c");
+        dropdown.previous_group();
+        assert_eq!(dropdown.current_item().unwrap().label(), "a");
+    }
 
     #[test]
     fn test_dropdown() -> anyhow::Result<()> {
@@ -287,48 +420,13 @@ mod test_dropdown {
 
     #[test]
     fn setting_filter_should_show_info_of_the_new_first_item() -> anyhow::Result<()> {
-        #[derive(Debug, Clone, PartialEq, Eq)]
-        struct Item {
-            label: String,
-            info: Info,
-        }
-        impl PartialOrd for Item {
-            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-                self.label.partial_cmp(&other.label)
-            }
-        }
-
-        impl Ord for Item {
-            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-                self.label.cmp(&other.label)
-            }
-        }
-
-        impl Item {
-            fn new(label: &str, info: &str) -> Self {
-                Self {
-                    label: label.to_string(),
-                    info: Info::new(info.to_string()),
-                }
-            }
-        }
-
-        impl DropdownItem for Item {
-            fn label(&self) -> String {
-                self.label.to_string()
-            }
-
-            fn info(&self) -> Option<Info> {
-                Some(self.info.clone())
-            }
-        }
         let mut dropdown = Dropdown::new(DropdownConfig {
             title: "test".to_string(),
         });
         dropdown.set_items(vec![
-            Item::new("a", "info a"),
-            Item::new("b", "info b"),
-            Item::new("c", "info c"),
+            Item::new("a", "info a", ""),
+            Item::new("b", "info b", ""),
+            Item::new("c", "info c", ""),
         ]);
 
         assert_eq!(dropdown.current_item().unwrap().label(), "a");

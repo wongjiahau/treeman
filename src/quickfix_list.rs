@@ -27,6 +27,10 @@ impl DropdownItem for QuickfixListItem {
     fn info(&self) -> Option<Info> {
         self.info.clone()
     }
+
+    fn group(&self) -> String {
+        self.location().path.display_absolute()
+    }
 }
 
 impl Component for QuickfixLists {

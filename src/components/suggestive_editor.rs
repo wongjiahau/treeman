@@ -49,6 +49,10 @@ impl DropdownItem for CodeAction {
     fn info(&self) -> Option<Info> {
         None
     }
+
+    fn group(&self) -> String {
+        self.kind.clone().unwrap_or("".to_string())
+    }
 }
 
 impl DropdownItem for CompletionItem {
@@ -81,6 +85,12 @@ impl DropdownItem for CompletionItem {
                 .collect_vec()
                 .join("\n==========\n"),
         ))
+    }
+
+    fn group(&self) -> String {
+        self.kind
+            .map(|kind| format!("{:?}", kind))
+            .unwrap_or(self.label.to_string())
     }
 }
 
