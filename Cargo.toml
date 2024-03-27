@@ -81,6 +81,7 @@ similar = {version = "2.4.0", features = ["unicode", "inline"]}
 indexmap = "2.2.2"
 globset = "0.4.14"
 unicode-width = "0.1.11"
+unicode-segmentation = "1.11.0"
 
 
 [dev-dependencies]

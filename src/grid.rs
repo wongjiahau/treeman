@@ -2,9 +2,8 @@ use crate::{app::Dimension, position::Position, themes::Color};
 
 use itertools::Itertools;
 use my_proc_macros::hex;
-#[cfg(test)]
-use ropey::Rope;
-use unicode_width::UnicodeWidthChar;
+use unicode_segmentation::UnicodeSegmentation;
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Grid {
@@ -31,7 +30,6 @@ fn choose<T>(old: Option<T>, new: Option<T>) -> Option<T> {
 }
 
 impl Cell {
-    #[cfg(test)]
     pub fn from_char(c: char) -> Self {
         Cell {
             symbol: c.to_string(),
@@ -231,25 +229,11 @@ impl Grid {
 
     #[cfg(test)]
     pub fn from_text(dimension: Dimension, text: &str) -> Grid {
-        Grid::from_rope(dimension, &Rope::from_str(text))
-    }
-
-    #[cfg(test)]
-    fn from_rope(dimension: Dimension, rope: &Rope) -> Grid {
-        let mut grid = Grid::new(dimension);
-
-        rope.lines().enumerate().for_each(|(row_index, line)| {
-            line.chars()
-                .enumerate()
-                .for_each(|(column_index, character)| {
-                    grid.rows[row_index][column_index] = Cell {
-                        symbol: character.to_string(),
-                        ..Cell::default()
-                    }
-                })
-        });
-
-        grid
+        text.lines()
+            .enumerate()
+            .fold(Grid::new(dimension), |grid, (row_index, line)| {
+                grid.set_row(row_index, None, None, line, &Style::default())
+            })
     }
 
     pub fn dimension(&self) -> Dimension {
@@ -328,7 +312,7 @@ impl Grid {
         let take = grid.dimension().width as usize;
         grid.apply_cell_updates(
             content
-                .chars()
+                .graphemes(false)
                 .take(take)
                 .enumerate()
                 .map(|(char_index, character)| {
@@ -420,12 +404,10 @@ impl Style {
 
 /// TODO: in the future, tab size should be configurable
 pub fn get_string_width(str: &str) -> usize {
-    str.chars()
-        .map(|char| match char {
-            '\t' => DEFAULT_TAB_SIZE,
-            _ => UnicodeWidthChar::width(char).unwrap_or(1),
-        })
-        .sum()
+    match str {
+        "\t" => DEFAULT_TAB_SIZE,
+        _ => UnicodeWidthStr::width(str),
+    }
 }
 
 #[cfg(test)]
@@ -441,6 +423,25 @@ mod test_grid {
     };
 
     use super::get_string_width;
+
+    #[test]
+    /// In short, "It is important to recognize that what the user thinks of as a "character" - a basic unit of a writing system for a language—may not be just a single Unicode code point. Instead, that basic unit may be made up of multiple Unicode code points"
+    ///
+    /// Read more at:
+    /// - https://en.wikipedia.org/wiki/Zero-width_joiner
+    /// - https://www.unicode.org/reports/tr29/#Grapheme_Cluster_Boundaries
+    fn consider_grapheme_cluster() {
+        let dimension = Dimension {
+            height: 1,
+            width: 10,
+        };
+        let zero_width_joiner = "\u{200D}";
+        let red_hair_man = format!("👨{}🦰", zero_width_joiner);
+        let grid = Grid::from_text(dimension, &red_hair_man);
+
+        // The symbol of the first cell should be a Redhair-Man, not just a Man, followed by the zero width joiner, then Redhair
+        assert_eq!(grid.rows[0][0].symbol, red_hair_man)
+    }
 
     #[test]
     fn set_row_should_pad_char_by_tab_width() {
