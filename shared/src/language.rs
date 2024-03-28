@@ -2,7 +2,10 @@ use grammar::grammar::GrammarConfiguration;
 use serde_json::Value;
 
 pub use crate::process_command::ProcessCommand;
-use crate::{canonicalized_path::CanonicalizedPath, formatter::Formatter};
+use crate::{
+    canonicalized_path::CanonicalizedPath, formatter::Formatter,
+    ts_highlight_query::get_highlight_query,
+};
 
 pub use crate::languages::LANGUAGES;
 
@@ -101,11 +104,18 @@ impl Language {
     }
 
     pub fn highlight_query(&self) -> Option<String> {
-        grammar::grammar::load_runtime_file(
-            &self.tree_sitter_grammar_config()?.grammar_id,
-            "highlights.scm",
-        )
-        .ok()
+        // Get highlight query from `nvim-treesitter` first
+        get_highlight_query(self.tree_sitter_grammar_config.clone()?.id)
+            .ok()
+            .map(|result| result.query)
+            .or(
+                // Otherwise, get from the default highlight queries defined in the grammar repo
+                grammar::grammar::load_runtime_file(
+                    &self.tree_sitter_grammar_config()?.grammar_id,
+                    "highlights.scm",
+                )
+                .ok(),
+            )
     }
 
     pub fn locals_query(&self) -> Option<&'static str> {

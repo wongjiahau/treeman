@@ -22,6 +22,7 @@ use super::{
     component::Component,
     editor::{Direction, DispatchEditor, Editor},
     keymap_legend::{Keymap, KeymapLegendBody, KeymapLegendConfig, Keymaps},
+    suggestive_editor::Info,
 };
 
 use DispatchEditor::*;
@@ -316,6 +317,22 @@ impl Editor {
                 })]
                 .into_iter()
                 .flatten()
+                .chain(
+                    self.buffer()
+                        .get_current_node(&self.selection_set.primary, false)
+                        .ok()
+                        .map(|node| KeymapLegendSection {
+                            title: "Tree-sitter node".to_string(),
+                            keymaps: Keymaps::new(&[Keymap::new(
+                                "s",
+                                "S-expression".to_string(),
+                                Dispatch::ShowEditorInfo(Info::new(
+                                    "Tree-sitter node S-expression".to_string(),
+                                    node.to_sexp(),
+                                )),
+                            )]),
+                        }),
+                )
                 .collect(),
             },
             owner_id: self.id(),

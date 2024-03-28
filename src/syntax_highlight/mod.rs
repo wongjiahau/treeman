@@ -1,12 +1,13 @@
 use std::{collections::HashMap, ops::Range, sync::mpsc::Sender};
 
+use itertools::Itertools;
 use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, Highlighter};
 
 use crate::{
     app::AppMessage,
     components::component::ComponentId,
     grid::{Style, StyleKey},
-    themes::Theme,
+    themes::{Theme, HIGHLIGHT_NAMES},
 };
 use shared::language::Language;
 
@@ -33,14 +34,20 @@ impl GetHighlightConfig for Language {
             return Ok(None);
         };
 
+        let highlights_query = &self.highlight_query().unwrap_or_default();
         let mut config = HighlightConfiguration::new(
             tree_sitter_language,
-            &self.highlight_query().unwrap_or_default(),
+            highlights_query,
             self.injection_query().unwrap_or_default(),
             self.locals_query().unwrap_or_default(),
         )?;
 
-        config.configure(crate::themes::HIGHLIGHT_NAMES);
+        config.configure(
+            &crate::themes::HIGHLIGHT_NAMES
+                .into_iter()
+                .map(|(name, _)| name)
+                .collect_vec(),
+        );
 
         Ok(Some(config))
     }
@@ -53,9 +60,7 @@ impl Highlight for HighlightConfiguration {
     fn highlight(&self, theme: Box<Theme>, source_code: &str) -> anyhow::Result<HighlighedSpans> {
         let mut highlighter = Highlighter::new();
 
-        let highlights = highlighter
-            .highlight(self, source_code.as_bytes(), None, |_| None)
-            .unwrap();
+        let highlights = highlighter.highlight(self, source_code.as_bytes(), None, |_| None)?;
 
         let mut highlight = None;
 
@@ -71,18 +76,16 @@ impl Highlight for HighlightConfiguration {
                 }
                 HighlightEvent::Source { start, end } => {
                     if let Some(highlight) = highlight {
-                        if let Some(color) = theme.syntax.get_color(highlight.0) {
+                        if let Some(color) = HIGHLIGHT_NAMES
+                            .get(highlight.0)
+                            .map(|(_, style_key)| theme.get_style(style_key))
+                        {
                             highlighted_spans.push(HighlighedSpan {
                                 byte_range: start..end,
                                 style: color,
-                                source: match crate::themes::HIGHLIGHT_NAMES.get(highlight.0) {
-                                    Some(&"comment") => Some(StyleKey::SyntaxComment),
-                                    Some(&"keyword") => Some(StyleKey::SyntaxKeyword),
-                                    Some(&"string") => Some(StyleKey::SyntaxString),
-                                    Some(&"type") => Some(StyleKey::SyntaxType),
-                                    Some(&"function") => Some(StyleKey::SyntaxFunction),
-                                    _ => None,
-                                },
+                                source: crate::themes::HIGHLIGHT_NAMES
+                                    .get(highlight.0)
+                                    .map(|(_, key)| key.clone()),
                             });
                         }
                     }
@@ -113,13 +116,17 @@ pub fn start_thread(callback: Sender<AppMessage>) -> Sender<SyntaxHighlightReque
     std::thread::spawn(move || {
         let mut highlight_configs = HighlightConfigs::new();
         while let Ok(request) = receiver.recv() {
-            if let Ok(highlighted_spans) =
-                highlight_configs.highlight(request.theme, request.language, &request.source_code)
+            match highlight_configs.highlight(request.theme, request.language, &request.source_code)
             {
-                let _ = callback.send(AppMessage::SyntaxHighlightResponse {
-                    component_id: request.component_id,
-                    highlighted_spans,
-                });
+                Ok(highlighted_spans) => {
+                    let _ = callback.send(AppMessage::SyntaxHighlightResponse {
+                        component_id: request.component_id,
+                        highlighted_spans,
+                    });
+                }
+                Err(error) => {
+                    log::info!("syntax_highlight_error = {:#?}", error)
+                }
             }
         }
     });

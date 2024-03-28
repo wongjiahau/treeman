@@ -102,21 +102,17 @@ pub struct SyntaxStyles {
     pub default: Style,
 }
 
-pub const HIGHLIGHT_NAMES: &[&str] = &["comment", "keyword", "string", "type", "function"];
-
-impl SyntaxStyles {
-    /// The `index` should tally with the `HIGHLIGHT_NAMES` array.
-    pub fn get_color(&self, index: usize) -> Option<Style> {
-        match index {
-            0 => Some(self.comment),
-            1 => Some(self.keyword),
-            2 => Some(self.string),
-            3 => Some(self.type_),
-            4 => Some(self.function),
-            _ => None,
-        }
-    }
-}
+pub const HIGHLIGHT_NAMES: &[(&str, StyleKey)] = &[
+    ("comment", StyleKey::SyntaxComment),
+    ("keyword", StyleKey::SyntaxKeyword),
+    ("string", StyleKey::SyntaxString),
+    ("type", StyleKey::SyntaxType),
+    ("tag", StyleKey::SyntaxType),
+    ("function", StyleKey::SyntaxFunction),
+    ("function.method", StyleKey::SyntaxFunction),
+    ("function.call", StyleKey::SyntaxFunction),
+    ("function.method.call", StyleKey::SyntaxFunction),
+];
 
 /// This should be constructed using the `color!` macro.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
