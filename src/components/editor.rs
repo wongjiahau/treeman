@@ -1213,6 +1213,34 @@ impl Editor {
         context: &Context,
         movement: Movement,
     ) -> anyhow::Result<Dispatches> {
+        match movement {
+            Movement::Last => {
+                let mut current_content = self.content();
+                let mut dispactches = Dispatches::default();
+                loop {
+                    dispactches = dispactches.chain(self.handle_movement(context, Movement::Next)?);
+                    let new_content = self.content();
+                    if current_content == new_content {
+                        return Ok(dispactches);
+                    }
+                    current_content = new_content
+                }
+            }
+            Movement::First => {
+                let mut current_content = self.content();
+                let mut dispactches = Dispatches::default();
+                loop {
+                    dispactches =
+                        dispactches.chain(self.handle_movement(context, Movement::Previous)?);
+                    let new_content = self.content();
+                    if current_content == new_content {
+                        return Ok(dispactches);
+                    }
+                    current_content = new_content
+                }
+            }
+            _ => {}
+        }
         match self.mode {
             Mode::Normal => self.move_selection_with_selection_mode(
                 context,

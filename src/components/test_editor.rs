@@ -1703,3 +1703,24 @@ fn tree_sitter_should_not_reparse_in_insert_mode() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn exchange_till_first_last() -> anyhow::Result<()> {
+    execute_test(|s| {
+        Box::new([
+            App(OpenFile(s.main_rs())),
+            Editor(SetContent("fn f(a:A,b:B,c:C){}".to_string())),
+            Editor(MatchLiteral("c:C".to_string())),
+            Editor(SetSelectionMode(SyntaxTree)),
+            Editor(EnterExchangeMode),
+            Editor(MoveSelection(First)),
+            Expect(CurrentComponentContent("fn f(c:C,a:A,b:B){}")),
+            Editor(MoveSelection(Last)),
+            Expect(CurrentComponentContent("fn f(a:A,b:B,c:C){}")),
+            Editor(Undo),
+            Expect(CurrentComponentContent("fn f(c:C,a:A,b:B){}")),
+            Editor(Undo),
+            Expect(CurrentComponentContent("fn f(a:A,b:B,c:C){}")),
+        ])
+    })
+}
