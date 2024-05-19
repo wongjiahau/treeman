@@ -115,15 +115,68 @@ impl Layout {
     pub(crate) fn recalculate_layout(&mut self) {
         let (layout_kind, ratio) = layout_kind(&self.terminal_dimension);
 
-        let (rectangles, borders) = Rectangle::generate(
-            layout_kind,
-            self.components().len(),
-            ratio,
-            self.terminal_dimension,
-        );
-        self.rectangles = rectangles;
+        let components = {
+            let result = self
+                .components()
+                .into_iter()
+                .filter(|c| c.kind() != ComponentKind::Prompt)
+                .collect_vec();
+            if self
+                .components()
+                .into_iter()
+                .filter(|c| c.kind() == ComponentKind::Prompt)
+                .count()
+                == 1
+                && self
+                    .components()
+                    .into_iter()
+                    .filter(|c| c.kind() == ComponentKind::Dropdown)
+                    .count()
+                    == 1
+            {
+                result
+            } else {
+                self.components()
+            }
+        };
+
+        let components_len = components.len();
+
+        debug_assert!(components.len() > 0);
+
+        let (rectangles, borders) =
+            Rectangle::generate(layout_kind, components_len, ratio, self.terminal_dimension);
+
+        // The prompt should be rendered above the dropdown
+        // So the rectangle of the dropdown should be split into two vertically
+
+        const PROMPT_HEIGHT: usize = 3;
+
+        self.rectangles = rectangles
+            .into_iter()
+            .zip(components.into_iter())
+            .flat_map(|(rectangle, non_prompt_component)| {
+                if non_prompt_component.kind() == ComponentKind::Dropdown {
+                    let (top, bottom) = rectangle.split_horizontally_at(PROMPT_HEIGHT);
+                    [top, bottom].to_vec()
+                } else {
+                    [rectangle].to_vec()
+                }
+            })
+            .collect_vec();
+
+        // The borders can remain the same, because a border do not have to be added
+        // if a rectangle is split vertically
         self.borders = borders;
 
+        // If there is prompt in the component, the prompt should be given a rectangle
+        // on the bottom of the screen
+
+        // How to implement nested prompts?
+        // They can be stacked, but only the most nested prompt are rendered
+        //
+        // Prompt should be always rendered above the completion menu
+        // Be it in Tall or Wide layout
         self.components()
             .into_iter()
             .zip(self.rectangles.iter())
