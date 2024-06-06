@@ -1,4 +1,5 @@
 use crate::app::{RequestParams, Scope};
+use crate::lsp::completion::CompletionSource;
 use anyhow::Context;
 use lsp_types::notification::Notification;
 use lsp_types::request::{
@@ -740,6 +741,13 @@ impl LspServerProcess {
                                         .map(CompletionItem::from)
                                         .map(|item| item.into())
                                         .collect(),
+                                        source: CompletionSource::Lsp {
+                                            language: self
+                                                .language
+                                                .id()
+                                                .map(|id| id.to_string())
+                                                .unwrap_or_else(|| "Unknown".to_string()),
+                                        },
                                     },
                                 )))
                                 .unwrap();

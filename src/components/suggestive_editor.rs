@@ -1,7 +1,7 @@
 use crate::app::{Dispatch, Dispatches};
 use crate::context::Context;
 use crate::grid::StyleKey;
-use crate::lsp::completion::CompletionItemEdit;
+use crate::lsp::completion::{CompletionItemEdit, CompletionSource};
 use DispatchEditor::*;
 
 use crate::selection_range::SelectionRange;
@@ -12,6 +12,7 @@ use crate::{
 
 use itertools::Itertools;
 use my_proc_macros::key;
+use std::collections::HashMap;
 use std::{cell::RefCell, rc::Rc};
 
 use super::dropdown::{Dropdown, DropdownConfig};
@@ -27,6 +28,7 @@ use super::{
 pub(crate) struct SuggestiveEditor {
     editor: Editor,
     completion_dropdown: Dropdown,
+    completions: HashMap<CompletionSource, Vec<DropdownItem>>,
 
     trigger_characters: Vec<String>,
     filter: SuggestiveEditorFilter,
@@ -41,6 +43,7 @@ pub(crate) enum SuggestiveEditorFilter {
 impl From<CompletionItem> for DropdownItem {
     fn from(value: CompletionItem) -> Self {
         DropdownItem::new(format!("{} {}", value.emoji(), value.label()))
+            .set_source(value.source())
             .set_info(value.info())
             .set_dispatches(Dispatches::one(match value.edit {
                 None => Dispatch::ToEditor(TryReplaceCurrentLongWord(value.label())),
@@ -185,6 +188,7 @@ impl SuggestiveEditor {
             }),
             trigger_characters: vec![],
             filter,
+            completions: Default::default(),
         }
     }
 
@@ -200,7 +204,7 @@ impl SuggestiveEditor {
             }
             DispatchSuggestiveEditor::Completion(completion) => {
                 if self.editor.mode == Mode::Insert {
-                    self.set_completion(completion);
+                    self.update_completion(completion);
                     Ok(Dispatches::one(self.render_completion_dropdown(false)))
                 } else {
                     Ok(Vec::new().into())
@@ -217,8 +221,10 @@ impl SuggestiveEditor {
         !self.completion_dropdown.items().is_empty()
     }
 
-    pub(crate) fn set_completion(&mut self, completion: Completion) {
-        self.completion_dropdown.set_items(completion.items);
+    pub(crate) fn update_completion(&mut self, completion: Completion) {
+        let _ = self.completions.insert(completion.source, completion.items);
+        self.completion_dropdown
+            .set_items(self.completions.values().cloned().flatten().collect_vec());
         self.trigger_characters = completion.trigger_characters;
     }
 
@@ -275,7 +281,7 @@ pub(crate) enum DispatchSuggestiveEditor {
 mod test_suggestive_editor {
     use crate::components::editor::DispatchEditor::*;
     use crate::components::suggestive_editor::DispatchSuggestiveEditor::*;
-    use crate::lsp::completion::{CompletionItemEdit, PositionalEdit};
+    use crate::lsp::completion::{CompletionItemEdit, CompletionSource, PositionalEdit};
     use crate::lsp::documentation::Documentation;
     use crate::position::Position;
     use crate::{
@@ -297,6 +303,7 @@ mod test_suggestive_editor {
 
     fn dummy_completion() -> Completion {
         Completion {
+            source: CompletionSource::Null,
             trigger_characters: vec![".".to_string()],
             items: vec![
                 CompletionItem::from_label("Spongebob".to_string()),
@@ -420,6 +427,7 @@ mod test_suggestive_editor {
                 SuggestiveEditor(CompletionFilter(SuggestiveEditorFilter::CurrentWord)),
                 // Pretend that the LSP server returned a completion
                 SuggestiveEditor(Completion(Completion {
+                    source: CompletionSource::Null,
                     trigger_characters: vec![".".to_string()],
                     items: vec![CompletionItem::from_label("aBigCatDog".to_string())]
                         .into_iter()
@@ -447,6 +455,7 @@ mod test_suggestive_editor {
                 SuggestiveEditor(CompletionFilter(SuggestiveEditorFilter::CurrentWord)),
                 // Pretend that the LSP server returned a completion
                 SuggestiveEditor(Completion(Completion {
+                    source: CompletionSource::Null,
                     trigger_characters: vec![".".to_string()],
                     items: vec![CompletionItem::from_label("aBigCatDog".to_string())]
                         .into_iter()
@@ -465,6 +474,7 @@ mod test_suggestive_editor {
     #[test]
     fn completion_info_documentation() -> anyhow::Result<()> {
         let completion_item = |label: &str, documentation: Option<&str>| CompletionItem {
+            source: CompletionSource::Null,
             label: label.to_string(),
             edit: Some(CompletionItemEdit::PositionalEdit(PositionalEdit {
                 range: Position::new(0, 0)..Position::new(0, 6),
@@ -483,6 +493,7 @@ mod test_suggestive_editor {
                 SuggestiveEditor(CompletionFilter(SuggestiveEditorFilter::CurrentWord)),
                 // Pretend that the LSP server returned a completion
                 SuggestiveEditor(super::DispatchSuggestiveEditor::Completion(Completion {
+                    source: CompletionSource::Null,
                     trigger_characters: vec![".".to_string()],
                     items: vec![
                         completion_item("Spongebob", Some("krabby patty maker")),
@@ -514,8 +525,10 @@ mod test_suggestive_editor {
                 App(HandleKeyEvents(keys!("s p o n g e").to_vec())),
                 // Pretend that the LSP server returned a completion
                 SuggestiveEditor(Completion(Completion {
+                    source: CompletionSource::Null,
                     trigger_characters: vec![".".to_string()],
                     items: vec![CompletionItem {
+                        source: CompletionSource::Null,
                         label: "Spongebob".to_string(),
                         edit: Some(CompletionItemEdit::PositionalEdit(PositionalEdit {
                             range: Position::new(0, 0)..Position::new(0, 6),
@@ -623,6 +636,7 @@ mod test_suggestive_editor {
     fn receiving_multiple_completion_should_not_increase_dropdown_infos_count(
     ) -> Result<(), anyhow::Error> {
         let completion = Completion {
+            source: CompletionSource::Null,
             trigger_characters: vec![".".to_string()],
             items: [CompletionItem::from_label("hello".to_string())
                 .set_documentation(Some(Documentation::new("This is a doc")))]
@@ -695,7 +709,9 @@ mod test_suggestive_editor {
                 // Pretend that the LSP server returned a completion
                 // That is without edit, but contains `kind`, which means it has emoji
                 SuggestiveEditor(Completion(Completion {
+                    source: CompletionSource::Null,
                     items: [CompletionItem {
+                        source: CompletionSource::Null,
                         label: "Spongebob".to_string(),
                         edit: None,
                         documentation: None,
@@ -738,6 +754,54 @@ mod test_suggestive_editor {
                 Expect(CompletionDropdownIsOpen(false)),
                 SuggestiveEditor(Completion(dummy_completion())),
                 Expect(CompletionDropdownIsOpen(false)),
+            ])
+        })
+    }
+
+    #[test]
+    /// Completion from different sources should not overried each other,
+    /// however, new completion should replace the exisiting completion of the same source
+    fn completion_sources() -> Result<(), anyhow::Error> {
+        execute_test(|s| {
+            Box::new([
+                App(OpenFile(s.main_rs())),
+                Editor(SetContent("".to_string())),
+                Editor(EnterInsertMode(Direction::Start)),
+                SuggestiveEditor(CompletionFilter(SuggestiveEditorFilter::CurrentWord)),
+                SuggestiveEditor(Completion(Completion {
+                    source: CompletionSource::Lsp {
+                        language: "Sea".to_string(),
+                    },
+                    trigger_characters: vec![".".to_string()],
+                    items: vec![
+                        CompletionItem::from_label("Spongebob".to_string()),
+                        CompletionItem::from_label("Patrick".to_string()),
+                        CompletionItem::from_label("Squidward".to_string()),
+                    ]
+                    .into_iter()
+                    .map(|item| item.into())
+                    .collect(),
+                })),
+                Expect(CompletionDropdownContent(
+                    " Patrick\n Spongebob\n Squidward",
+                )),
+                SuggestiveEditor(Completion(Completion {
+                    source: CompletionSource::Lsp {
+                        language: "Fruit".to_string(),
+                    },
+                    trigger_characters: vec![".".to_string()],
+                    items: vec![
+                        CompletionItem::from_label("Apple".to_string()),
+                        CompletionItem::from_label("Banana".to_string()),
+                        CompletionItem::from_label("Orange".to_string()),
+                    ]
+                    .into_iter()
+                    .map(|item| item.into())
+                    .collect(),
+                })),
+                Expect(CompletionDropdownContent(
+                    " Apple\n Banana\n Orange\n Patrick\n Spongebob\n Squidward",
+                )),
             ])
         })
     }

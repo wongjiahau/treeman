@@ -1,6 +1,9 @@
 use std::cmp::Reverse;
 
-use crate::{app::Dispatches, components::editor::Movement, position::Position};
+use crate::{
+    app::Dispatches, components::editor::Movement, lsp::completion::CompletionSource,
+    position::Position,
+};
 
 use itertools::Itertools;
 
@@ -13,6 +16,7 @@ use super::suggestive_editor::{Decoration, Info};
 /// Note: filtering will be done on the combination of `display` and `group` (if applicable)
 pub(crate) struct DropdownItem {
     pub(crate) dispatches: Dispatches,
+    source: CompletionSource,
     display: String,
     group: Option<String>,
     info: Option<Info>,
@@ -32,6 +36,7 @@ impl DropdownItem {
             group: Default::default(),
             info: Default::default(),
             rank: None,
+            source: CompletionSource::Null,
         }
     }
 
@@ -49,6 +54,10 @@ impl DropdownItem {
 
     pub(crate) fn set_rank(self, rank: Option<Box<[usize]>>) -> DropdownItem {
         Self { rank, ..self }
+    }
+
+    pub(crate) fn set_source(self, source: CompletionSource) -> DropdownItem {
+        Self { source, ..self }
     }
 }
 
@@ -313,6 +322,8 @@ impl Dropdown {
                     })
                     .sorted_by_key(|item| {
                         (
+                            // Sort by source first
+                            item.item.source.clone(),
                             // Sort by fuzzy score first
                             Reverse(item.fuzzy_score),
                             // Then sort by rank

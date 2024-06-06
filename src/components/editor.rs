@@ -39,7 +39,7 @@ use DispatchEditor::*;
 
 use super::{
     component::ComponentId,
-    dropdown::DropdownRender,
+    dropdown::{DropdownItem, DropdownRender},
     render_editor::Source,
     suggestive_editor::{Decoration, Info},
 };
@@ -1165,7 +1165,24 @@ impl Editor {
                 )
             }));
 
-        self.apply_edit_transaction(edit_transaction)
+        Ok(self
+            .apply_edit_transaction(edit_transaction)?
+            .append(Dispatch::SetCompletion(
+                crate::lsp::completion::Completion {
+                    source: crate::lsp::completion::CompletionSource::CurrentEditorWords,
+                    items: self
+                        .buffer()
+                        .words()
+                        .into_iter()
+                        .map(|word| {
+                            DropdownItem::from(word.clone()).set_dispatches(Dispatches::one(
+                                Dispatch::ToEditor(DispatchEditor::TryReplaceCurrentLongWord(word)),
+                            ))
+                        })
+                        .collect_vec(),
+                    trigger_characters: Default::default(),
+                },
+            )))
     }
 
     pub(crate) fn get_request_params(&self) -> Option<RequestParams> {

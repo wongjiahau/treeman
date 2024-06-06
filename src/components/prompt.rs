@@ -7,7 +7,7 @@ use crate::{
     buffer::Buffer,
     components::editor::{self, DispatchEditor},
     context::Context,
-    lsp::completion::Completion,
+    lsp::completion::{Completion, CompletionSource},
 };
 
 use super::{
@@ -86,7 +86,8 @@ impl Prompt {
         }));
         // TODO: set cursor to last line
         editor.set_title(config.title);
-        editor.set_completion(Completion {
+        editor.update_completion(Completion {
+            source: CompletionSource::PromptItems,
             items: config.items,
             trigger_characters: vec![" ".to_string()],
         });

@@ -555,6 +555,9 @@ impl<T: Frontend> App<T> {
             Dispatch::GoToNextFile => self.go_to_next_file()?,
             Dispatch::PushPromptHistory { key, line } => self.push_history_prompt(key, line),
             Dispatch::OpenThemePrompt => self.open_theme_prompt()?,
+            Dispatch::SetCompletion(completion) => self.handle_dispatch_suggestive_editor(
+                DispatchSuggestiveEditor::Completion(completion),
+            )?,
         }
         Ok(())
     }
@@ -2066,6 +2069,7 @@ pub(crate) enum Dispatch {
         line: String,
     },
     OpenThemePrompt,
+    SetCompletion(crate::lsp::completion::Completion),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

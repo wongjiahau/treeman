@@ -37,7 +37,9 @@ use crate::{
     list::grep::RegexConfig,
     lsp::{
         code_action::CodeAction,
-        completion::{Completion, CompletionItem, CompletionItemEdit, PositionalEdit},
+        completion::{
+            Completion, CompletionItem, CompletionItemEdit, CompletionSource, PositionalEdit,
+        },
         documentation::Documentation,
         signature_help::SignatureInformation,
         workspace_edit::{TextDocumentEdit, WorkspaceEdit},
@@ -1396,6 +1398,7 @@ fn should_be_able_to_handle_key_event_even_when_no_file_is_opened() -> anyhow::R
 fn cycle_window() -> anyhow::Result<()> {
     {
         let completion_item = |label: &str, documentation: Option<&str>| CompletionItem {
+            source: CompletionSource::Null,
             label: label.to_string(),
             edit: Some(CompletionItemEdit::PositionalEdit(PositionalEdit {
                 range: Position::new(0, 0)..Position::new(0, 6),
@@ -1416,6 +1419,7 @@ fn cycle_window() -> anyhow::Result<()> {
                 )),
                 // Pretend that the LSP server returned a completion
                 SuggestiveEditor(DispatchSuggestiveEditor::Completion(Completion {
+                    source: CompletionSource::Null,
                     trigger_characters: vec![".".to_string()],
                     items: Some(completion_item(
                         "Spongebob squarepants",
@@ -1447,6 +1451,7 @@ fn cycle_window() -> anyhow::Result<()> {
 fn esc_in_normal_mode_in_suggestive_editor_should_close_all_other_windows() -> anyhow::Result<()> {
     {
         let completion_item = |label: &str, documentation: Option<&str>| CompletionItem {
+            source: CompletionSource::Null,
             label: label.to_string(),
             edit: Some(CompletionItemEdit::PositionalEdit(PositionalEdit {
                 range: Position::new(0, 0)..Position::new(0, 6),
@@ -1467,6 +1472,7 @@ fn esc_in_normal_mode_in_suggestive_editor_should_close_all_other_windows() -> a
                 )),
                 // Pretend that the LSP server returned a completion
                 SuggestiveEditor(DispatchSuggestiveEditor::Completion(Completion {
+                    source: CompletionSource::Null,
                     trigger_characters: vec![".".to_string()],
                     items: Some(completion_item(
                         "Spongebob squarepants",
@@ -1490,6 +1496,7 @@ fn saving_in_insert_mode_in_suggestive_editor_should_close_all_other_windows() -
 {
     {
         let completion_item = |label: &str, documentation: Option<&str>| CompletionItem {
+            source: CompletionSource::Null,
             label: label.to_string(),
             edit: Some(CompletionItemEdit::PositionalEdit(PositionalEdit {
                 range: Position::new(0, 0)..Position::new(0, 6),
@@ -1510,6 +1517,7 @@ fn saving_in_insert_mode_in_suggestive_editor_should_close_all_other_windows() -
                 )),
                 // Pretend that the LSP server returned a completion
                 SuggestiveEditor(DispatchSuggestiveEditor::Completion(Completion {
+                    source: CompletionSource::Null,
                     trigger_characters: vec![".".to_string()],
                     items: Some(completion_item(
                         "Spongebob squarepants",
@@ -1584,6 +1592,7 @@ fn editor_info_should_always_come_after_dropdown() -> anyhow::Result<()> {
             ))),
             // The show dropdown
             SuggestiveEditor(DispatchSuggestiveEditor::Completion(Completion {
+                source: CompletionSource::Null,
                 trigger_characters: vec![".".to_string()],
                 items: Some(CompletionItem::from_label(
                     "Spongebob squarepants".to_string(),
@@ -1608,6 +1617,7 @@ fn dropdown_can_only_be_rendered_on_suggestive_editor_or_prompt() -> anyhow::Res
     execute_test(|s| {
         let received_completion = || {
             SuggestiveEditor(DispatchSuggestiveEditor::Completion(Completion {
+                source: CompletionSource::Null,
                 trigger_characters: vec![".".to_string()],
                 items: Some(CompletionItem::from_label(
                     "Spongebob squarepants".to_string(),
@@ -1641,6 +1651,7 @@ fn only_children_of_root_can_remove_all_other_components() -> anyhow::Result<()>
     execute_test(|s| {
         let received_completion = || {
             SuggestiveEditor(DispatchSuggestiveEditor::Completion(Completion {
+                source: CompletionSource::Null,
                 trigger_characters: vec![".".to_string()],
                 items: Some(CompletionItem::from_label(
                     "Spongebob squarepants".to_string(),

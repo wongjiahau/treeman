@@ -13,12 +13,22 @@ use super::documentation::Documentation;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Completion {
+    pub(crate) source: CompletionSource,
     pub(crate) items: Vec<DropdownItem>,
     pub(crate) trigger_characters: Vec<String>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub(crate) enum CompletionSource {
+    PromptItems,
+    Lsp { language: String },
+    CurrentEditorWords,
+    Null,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CompletionItem {
+    pub(crate) source: CompletionSource,
     pub(crate) label: String,
     pub(crate) kind: Option<CompletionItemKind>,
     pub(crate) detail: Option<String>,
@@ -109,6 +119,7 @@ impl CompletionItem {
             documentation: None,
             sort_text: None,
             edit: None,
+            source: CompletionSource::Null,
         }
     }
 
@@ -126,6 +137,10 @@ impl CompletionItem {
             documentation: description,
             ..self
         }
+    }
+
+    pub(crate) fn source(&self) -> CompletionSource {
+        self.source.clone()
     }
 }
 
@@ -146,6 +161,9 @@ impl From<lsp_types::CompletionItem> for CompletionItem {
                 }
                 lsp_types::CompletionTextEdit::InsertAndReplace(_) => None,
             }),
+            source: CompletionSource::Lsp {
+                language: "".to_string(),
+            },
         }
     }
 }
