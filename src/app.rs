@@ -922,16 +922,16 @@ impl<T: Frontend> App<T> {
 
         self.layout.add_suggestive_editor(component.clone());
 
-        if let Some(language) = language {
-            self.request_syntax_highlight(component_id, language, content)?;
-        }
-
-        if self.enable_lsp {
-            self.lsp_manager.open_file(path.clone())?;
-        }
         if option.is_focus() {
             self.layout
                 .replace_and_focus_current_suggestive_editor(component.clone())
+        }
+
+        if let Some(language) = language {
+            self.request_syntax_highlight(component_id, language, content)?;
+        }
+        if self.enable_lsp {
+            self.lsp_manager.open_file(path.clone())?;
         }
         Ok(component)
     }
