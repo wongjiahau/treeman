@@ -43,6 +43,7 @@ mod utils;
 
 use std::sync::{Arc, Mutex};
 
+use anyhow::Context;
 use frontend::crossterm::Crossterm;
 use log::LevelFilter;
 use shared::canonicalized_path::CanonicalizedPath;
@@ -62,8 +63,8 @@ pub(crate) struct RunConfig {
 }
 
 pub(crate) fn run(config: RunConfig) -> anyhow::Result<()> {
+    std::fs::create_dir_all(grammar::cache_dir()).context("Failed to create cache_dir")?;
     simple_logging::log_to_file(grammar::default_log_file(), LevelFilter::Info)?;
-    let _args = std::env::args();
     let (sender, receiver) = std::sync::mpsc::channel();
     let syntax_highlighter_sender = syntax_highlight::start_thread(sender.clone());
     let mut app = App::from_channel(
