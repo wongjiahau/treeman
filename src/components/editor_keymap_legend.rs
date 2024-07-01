@@ -31,18 +31,18 @@ impl Editor {
             title: "Movements (Core)".to_string(),
             keymaps: Keymaps::new(&[
                 Keymap::new(
-                    "h",
-                    "Higher (Previous)".to_string(),
+                    "p",
+                    "Previous".to_string(),
                     Dispatch::ToEditor(MoveSelection(Movement::Previous)),
                 ),
                 Keymap::new(
-                    "l",
-                    "Lower (Next)".to_string(),
+                    "n",
+                    "Next".to_string(),
                     Dispatch::ToEditor(MoveSelection(Next)),
                 ),
-                Keymap::new("k", "Up".to_string(), Dispatch::ToEditor(MoveSelection(Up))),
+                Keymap::new("u", "Up".to_string(), Dispatch::ToEditor(MoveSelection(Up))),
                 Keymap::new(
-                    "j",
+                    "d",
                     "Down".to_string(),
                     Dispatch::ToEditor(MoveSelection(Down)),
                 ),
@@ -57,8 +57,8 @@ impl Editor {
                     Dispatch::ToEditor(MoveSelection(Movement::Last)),
                 ),
                 Keymap::new(
-                    "s",
-                    "Spring (Jump)".to_string(),
+                    "j",
+                    "Jump".to_string(),
                     Dispatch::ToEditor(DispatchEditor::ShowJumps {
                         use_current_selection_mode: true,
                     }),
@@ -122,12 +122,12 @@ impl Editor {
                     Dispatch::ShowKeymapLegend(self.between_mode_keymap_legend_config()),
                 ),
                 Keymap::new(
-                    "e",
+                    "l",
                     "Line (Trimmed)".to_string(),
                     Dispatch::ToEditor(SetSelectionMode(LineTrimmed)),
                 ),
                 Keymap::new(
-                    "E",
+                    "L",
                     "Line (Full)".to_string(),
                     Dispatch::ToEditor(SetSelectionMode(LineFull)),
                 ),
@@ -146,12 +146,12 @@ impl Editor {
                     ),
                 ),
                 Keymap::new(
-                    "n",
+                    "s",
                     "Syntax Node (Coarse)".to_string(),
                     Dispatch::ToEditor(SetSelectionMode(SyntaxNodeCoarse)),
                 ),
                 Keymap::new(
-                    "N",
+                    "S",
                     "Syntax Node (Fine)".to_string(),
                     Dispatch::ToEditor(SetSelectionMode(SyntaxNodeFine)),
                 ),
@@ -161,8 +161,8 @@ impl Editor {
                     Dispatch::ToEditor(SetSelectionMode(Token)),
                 ),
                 Keymap::new(
-                    "u",
-                    "Column".to_string(),
+                    "h",
+                    "Hieroglyph".to_string(),
                     Dispatch::ToEditor(SetSelectionMode(Column)),
                 ),
                 Keymap::new(
@@ -192,15 +192,15 @@ impl Editor {
                     "Insert (after selection)".to_string(),
                     Dispatch::ToEditor(EnterInsertMode(Direction::End)),
                 ),
-                Keymap::new("c", "Change".to_string(), Dispatch::ToEditor(Change)),
+                Keymap::new("y", "Yeet".to_string(), Dispatch::ToEditor(Change)),
                 Keymap::new(
-                    "d",
-                    "Delete (until next selection)".to_string(),
+                    "k",
+                    "Kill (until next selection)".to_string(),
                     Dispatch::ToEditor(Delete { backward: false }),
                 ),
                 Keymap::new(
-                    "D",
-                    "Delete (until previous selection)".to_string(),
+                    "K",
+                    "Kill (until previous selection)".to_string(),
                     Dispatch::ToEditor(Delete { backward: true }),
                 ),
                 Keymap::new(
@@ -239,8 +239,8 @@ impl Editor {
                     Dispatch::ToEditor(ReplaceWithNextCopiedText),
                 ),
                 Keymap::new(
-                    "v",
-                    "Toggle Visual Mode".to_string(),
+                    "e",
+                    "Toggle Extend Mode".to_string(),
                     Dispatch::ToEditor(ToggleVisualMode),
                 ),
                 Keymap::new("enter", "Save".to_string(), Dispatch::ToEditor(Save)),
@@ -258,14 +258,14 @@ impl Editor {
             title: "Clipboard-related actions".to_string(),
             keymaps: Keymaps::new(&[
                 Keymap::new(
-                    "C",
-                    "Change Cut".to_string(),
-                    Dispatch::ToEditor(ChangeCut {
+                    "c",
+                    "Copy".to_string(),
+                    Dispatch::ToEditor(Copy {
                         use_system_clipboard,
                     }),
                 ),
                 Keymap::new(
-                    "p",
+                    "v",
                     "Paste (after selection)".to_string(),
                     Dispatch::ToEditor(Paste {
                         direction: Direction::End,
@@ -273,7 +273,7 @@ impl Editor {
                     }),
                 ),
                 Keymap::new(
-                    "P",
+                    "V",
                     "Paste (before selection)".to_string(),
                     Dispatch::ToEditor(Paste {
                         direction: Direction::Start,
@@ -297,9 +297,9 @@ impl Editor {
                     }),
                 ),
                 Keymap::new(
-                    "y",
-                    "Yank (Copy)".to_string(),
-                    Dispatch::ToEditor(Copy {
+                    "Y",
+                    "Yeet Cut".to_string(),
+                    Dispatch::ToEditor(ChangeCut {
                         use_system_clipboard,
                     }),
                 ),
