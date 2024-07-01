@@ -11,6 +11,7 @@ pub const LANGUAGES: &[&Language] = &[
     &just(),
     &json(),
     &markdown(),
+    &python(),
     &rust(),
     &sql(),
     &toml(),
@@ -178,6 +179,25 @@ const fn markdown() -> Language {
             subpath: Some("tree-sitter-markdown"),
         }),
         formatter_command: Some(Command("prettierd", &[".md"])),
+        ..Language::new()
+    }
+}
+
+const fn python() -> Language {
+    Language {
+        lsp_language_id: Some(LanguageId::new("python")),
+        extensions: &["py"],
+        lsp_command: Some(LspCommand {
+            command: Command("pyright-langserver", &["--stdio"]),
+            ..LspCommand::default()
+        }),
+        tree_sitter_grammar_config: Some(GrammarConfig {
+            id: "python",
+            url: "https://github.com/tree-sitter/tree-sitter-python",
+            commit: "master",
+            subpath: None,
+        }),
+        formatter_command: Some(Command("ruff", &["format", "--stdin-filename", ".py"])),
         ..Language::new()
     }
 }
